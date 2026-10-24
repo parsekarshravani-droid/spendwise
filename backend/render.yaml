@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: spendwise-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && flask db upgrade
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: FLASK_APP
+        value: app.py
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
