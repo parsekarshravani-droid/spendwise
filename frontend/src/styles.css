@@ -75,3 +75,14 @@ th{font-weight:600;color:var(--muted);font-size:.85rem;background:var(--wash)}td
  td[data-l]::before{content:attr(data-l);color:var(--muted)}td.acts{justify-content:flex-end}.two{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Settings */
+.settings{max-width:820px}.set-sec{display:flex;flex-direction:column;gap:6px}.set-sec>header{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.set-ico{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--wash);color:var(--accent);border:1px solid var(--line);flex:none}
+.brows{list-style:none;margin:8px 0 0;padding:0}.brows li{display:grid;grid-template-columns:1fr minmax(130px,200px);gap:12px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)}.brows li:last-child{border:0}.brows label{font-weight:600}
+.themes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.theme-opt{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;border:2px solid var(--line);border-radius:12px;cursor:pointer;font-weight:600;text-align:center}
+.theme-opt input{position:absolute;opacity:0;pointer-events:none}.theme-opt.on{border-color:var(--accent);background:var(--wash)}.theme-opt:has(input:focus-visible){outline:3px solid var(--focus);outline-offset:2px}
+.switch-row{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:8px 0}.switch-row label{font-weight:600}
+.switch{appearance:none;width:44px;height:26px;padding:0;border-radius:99px;background:var(--line);position:relative;cursor:pointer;flex:none;border:0;transition:background .15s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s}.switch:checked{background:var(--accent)}.switch:checked::after{transform:translateX(18px)}
+.savebar{position:sticky;bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 28px #0003;z-index:20}.unsaved{font-weight:600;color:var(--warn)}
+@media(max-width:820px){.savebar{bottom:84px}.brows li{grid-template-columns:1fr}.themes{grid-template-columns:1fr}.theme-opt{flex-direction:row;justify-content:center}}

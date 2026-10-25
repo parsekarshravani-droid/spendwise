@@ -3,6 +3,7 @@ import { AlertTriangle, Pencil, Plus, Trash2 } from 'lucide-react'
 import { api, monthLabel, money } from '../api'
 import { Confirm, Empty, ErrorState, Field, Modal, Skeleton, useApi, useToast } from '../ui'
 import { BudgetBar } from './Dashboard'
+import { useSettings } from '../settings'
 
 function BudgetForm({ b, month, cats, used, onClose, onSaved }) {
   const toast = useToast()
@@ -24,12 +25,12 @@ function BudgetForm({ b, month, cats, used, onClose, onSaved }) {
 }
 
 export default function Budgets() {
-  const toast = useToast()
+  const toast = useToast(); const { settings } = useSettings()
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
   const meta = useApi('/meta').data
   const { data, loading, error, reload } = useApi('/budgets?month=' + month)
   const [form, setForm] = useState(null); const [del, setDel] = useState(null)
-  const alerts = data?.filter((b) => b.status !== 'ok') || []
+  const alerts = settings.notifications_enabled ? data?.filter((b) => b.status !== 'ok') || [] : []
   return <>
     <header className="page-head"><div><h1>Budgets</h1><p className="muted">Monthly limits by category</p></div>
       <div className="head-actions"><input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} aria-label="Month" />

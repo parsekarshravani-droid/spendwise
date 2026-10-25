@@ -3,7 +3,12 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
   "dependencies": {
     "lucide-react": "^0.453.0",
     "react": "^18.3.1",
@@ -11,5 +16,10 @@
     "react-router-dom": "^6.26.2",
     "recharts": "^2.13.0"
   },
-  "devDependencies": { "@vitejs/plugin-react": "^4.3.3", "vite": "^5.4.10" }
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4",
+    "jsdom": "^25.0.1"
+  }
 }
