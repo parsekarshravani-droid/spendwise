@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { monthLabel, money } from '../api'
+import { fmtDate, monthLabel, money } from '../api'
+import { useSettings } from '../settings'
 import { Delta, Empty, ErrorState, Skeleton, useApi } from '../ui'
 
 export const PALETTE = ['#0b7a75', '#3b5bdb', '#c7443a', '#d49a0b', '#7b4fc9', '#2b9348', '#d6336c', '#5c677d', '#e07a1f', '#1098ad']
@@ -17,6 +18,7 @@ export function BudgetBar({ b }) {
 }
 
 export default function Dashboard() {
+  const { settings } = useSettings()
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
   const { data: d, loading, error, reload } = useApi('/dashboard?month=' + month)
   const empty = d && !d.recent.length && !d.series.some((s) => s.income || s.expenses)
@@ -33,9 +35,12 @@ export default function Dashboard() {
           <div className="track tall" aria-hidden="true"><div className={'fill ' + (d.savings < 0 ? 'over' : 'spent')} style={{ width: spentPct + '%' }} /></div>
           <p className="small muted">{d.income ? (d.savings >= 0 ? `You've spent ${spentPct.toFixed(0)}% of this month's income` : `You've spent ${money(-d.savings)} more than you earned this month`) : 'No income recorded this month'}</p></div>
       </section>
+      {d.limit && <section className="card"><BudgetBar b={{ category: 'Overall monthly spending limit', status: d.limit.status, pct: d.limit.pct, spent: d.limit.spent, amount: d.limit.amount, remaining: d.limit.remaining }} />
+        {settings.notifications_enabled && d.limit.status !== 'ok' && <div className={'banner ' + d.limit.status} role="alert">{d.limit.status === 'over' ? `You're ${money(-d.limit.remaining)} over your monthly spending limit.` : `You've used ${d.limit.pct.toFixed(0)}% of your monthly spending limit.`}</div>}</section>}
       <section className="stats">
         {[['Income', d.income, d.change.income, true], ['Expenses', d.expenses, d.change.expenses, false], ['Savings', d.savings, null, true]].map(([l, v, c, up]) =>
           <div className="card stat" key={l}><span className="muted">{l}</span><strong className={l === 'Savings' && v < 0 ? 'neg' : ''}>{money(v)}</strong>
+            {l === 'Income' && d.income_target && <span className="muted small">Target {money(d.income_target)}</span>}
             {c != null ? <Delta v={c} goodWhenUp={up} /> : <span className="muted small">{d.savings_rate != null ? `${d.savings_rate}% of income` : '—'}</span>}</div>)}
       </section>
       <section className="grid2">
@@ -56,7 +61,7 @@ export default function Dashboard() {
         <div className="card"><div className="row"><h2>Budgets</h2><Link to="/budgets">Manage</Link></div>
           {d.budgets.length ? d.budgets.map((b) => <BudgetBar b={b} key={b.id} />) : <Empty title="No budgets for this month" text="Set a limit per category to track your spending."><Link className="btn" to="/budgets">Create a budget</Link></Empty>}</div>
         <div className="card"><div className="row"><h2>Recent transactions</h2><Link to="/transactions">View all</Link></div>
-          <ul className="tx-list">{d.recent.map((t) => <li key={t.id}><div><strong>{t.title}</strong><span className="muted small">{t.category} · {t.date}</span></div>
+          <ul className="tx-list">{d.recent.map((t) => <li key={t.id}><div><strong>{t.title}</strong><span className="muted small">{t.category} · {fmtDate(t.date)}</span></div>
             <span className={t.type === 'income' ? 'pos' : 'neg'}>{t.type === 'income' ? '+' : '−'}{money(t.amount)}</span></li>)}</ul></div>
       </section></div>}
   </>

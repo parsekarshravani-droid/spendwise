@@ -2,9 +2,10 @@ import csv, io
 from datetime import date
 from decimal import Decimal
 from flask import Blueprint, jsonify, request, Response
-from sqlalchemy import or_
+from datetime import datetime, timezone
+from sqlalchemy import or_, update
 from sqlalchemy.exc import IntegrityError
-from models import db, Transaction, Budget
+from models import db, Transaction, Budget, Settings
 import analytics as A
 import insights as I
 
@@ -148,6 +149,32 @@ def create_budget():
     except IntegrityError: db.session.rollback(); return err("That budget already exists.", 409)
     return next(x for x in A.budget_status(v["month"]) if x["id"] == b.id), 201
 
+@bp.put("/budgets/bulk")
+def bulk_budgets():
+    """Create-or-update several budgets for one month atomically. Never duplicates (category, month)."""
+    d = request.get_json(silent=True) or {}
+    month, items = str(d.get("month") or ""), d.get("budgets")
+    if not A.valid_month(month): return err("month must be YYYY-MM.", 422)
+    if not isinstance(items, list) or not items or len(items) > len(EXPENSE_CATS): return err("Send a list of budgets to save.", 422)
+    errors, seen, parsed = {}, set(), []
+    for it in items:
+        it = it if isinstance(it, dict) else {}
+        cat = it.get("category")
+        v, e = parse_budget({"category": cat, "amount": it.get("amount"), "month": month})
+        if cat in seen: e["category"] = "Listed twice."
+        seen.add(cat)
+        if e: errors[str(cat)] = e.get("amount") or e.get("category")
+        else: parsed.append(v)
+    if errors: return err("Some budgets are invalid.", 422, errors)
+    existing = {b.category: b for b in Budget.query.filter_by(month=month)}
+    for v in parsed:
+        if v["category"] in existing: existing[v["category"]].amount = v["amount"]
+        else: db.session.add(Budget(**v))
+    try: db.session.commit()
+    except IntegrityError:
+        db.session.rollback(); return err("Budgets were changed elsewhere. Reload and try again.", 409)
+    return {"budgets": A.budget_status(month)}
+
 @bp.put("/budgets/<int:i>")
 def update_budget(i):
     b = db.get_or_404(Budget, i, description="Budget not found.")
@@ -194,3 +221,71 @@ def ai_summary():
     if not m: return err("month must be YYYY-MM.")
     try: return I.ai_summary(m)
     except I.AIError as ex: return err(str(ex), 503)
+
+
+# ---- settings (global: the app has no authentication) ----
+CURRENCIES = ("INR", "USD", "EUR", "GBP", "AED")
+DATE_FORMATS = ("DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD")
+THEMES = ("light", "dark", "system")
+
+def get_settings():
+    s = db.session.get(Settings, 1)
+    if s is None:
+        db.session.add(Settings(id=1))
+        try: db.session.commit()
+        except IntegrityError: db.session.rollback()  # another request created it first
+        s = db.session.get(Settings, 1)
+    return s
+
+def money_or_none(raw):
+    if raw is None or str(raw).strip() == "": return None
+    a = Decimal(str(raw).replace(",", "").strip())
+    if not (Decimal("0") < a < Decimal("1000000000")): raise ValueError
+    return a.quantize(Decimal("0.01"))
+
+def parse_settings(d):
+    v, e = {}, {}
+    if "display_name" in d:
+        n = str(d["display_name"] or "").strip()
+        if len(n) > 60: e["display_name"] = "Use 60 characters or fewer."
+        else: v["display_name"] = n
+    for k, allowed, label in (("currency", CURRENCIES, "a supported currency"), ("date_format", DATE_FORMATS, "a supported date format"), ("theme", THEMES, "light, dark or system")):
+        if k in d:
+            if d[k] in allowed: v[k] = d[k]
+            else: e[k] = f"Choose {label}."
+    for k in ("monthly_income_target", "monthly_spending_limit"):
+        if k in d:
+            try: v[k] = money_or_none(d[k])
+            except Exception: e[k] = "Enter an amount greater than 0, or leave it empty."
+    for k in ("notifications_enabled", "monthly_summary_enabled"):
+        if k in d:
+            if isinstance(d[k], bool): v[k] = d[k]
+            else: e[k] = "Must be true or false."
+    if "budget_alert_threshold" in d:
+        t = d["budget_alert_threshold"]
+        try:
+            if isinstance(t, bool) or int(t) != float(t) or not 50 <= int(t) <= 100: raise ValueError
+            v["budget_alert_threshold"] = int(t)
+        except (ValueError, TypeError): e["budget_alert_threshold"] = "Enter a whole number from 50 to 100."
+    return v, e
+
+@bp.get("/settings")
+def read_settings(): return get_settings().to_dict()
+
+@bp.put("/settings")
+def write_settings():
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict): return err("Send a JSON object.", 400)
+    v, e = parse_settings(d)
+    if e: return err("Please fix the highlighted fields.", 422, e)
+    cur = get_settings()
+    version = d.get("version", cur.version)
+    if isinstance(version, bool) or not isinstance(version, int): return err("version must be a number.", 422, {"version": "Invalid."})
+    # Atomic compare-and-set: only applies if nobody else saved since this client loaded the settings.
+    res = db.session.execute(update(Settings).where(Settings.id == 1, Settings.version == version)
+                             .values(**v, version=version + 1, updated_at=datetime.now(timezone.utc)))
+    if res.rowcount == 0:
+        db.session.rollback()
+        return err("Settings were changed from another device or tab. Reload to see the latest values.", 409)
+    db.session.commit(); db.session.expire_all()
+    return get_settings().to_dict()

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDownUp, Download, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react'
-import { api, download, money, qs } from '../api'
+import { api, download, fmtDate, money, qs } from '../api'
 import { Confirm, Empty, ErrorState, Field, Modal, Skeleton, useApi, useToast } from '../ui'
 
 const INCOME = ['Salary', 'Freelance', 'Investments', 'Other']
@@ -74,7 +74,7 @@ export default function Transactions() {
       <div className={'card table-wrap' + (loading ? ' busy' : '')}><table>
         <thead><tr>{th('date', 'Date')}{th('title', 'Title')}{th('category', 'Category')}{th('amount', 'Amount')}<th scope="col"><span className="sr">Actions</span></th></tr></thead>
         <tbody>{data.items.map((t) => <tr key={t.id}>
-          <td data-l="Date">{t.date}</td><td data-l="Title"><strong>{t.title}</strong>{t.notes && <span className="muted small block">{t.notes}</span>}</td>
+          <td data-l="Date">{fmtDate(t.date)}</td><td data-l="Title"><strong>{t.title}</strong>{t.notes && <span className="muted small block">{t.notes}</span>}</td>
           <td data-l="Category"><span className="chip">{t.category}</span></td>
           <td data-l="Amount" className={t.type === 'income' ? 'pos num' : 'neg num'}>{t.type === 'income' ? '+' : '−'}{money(t.amount, 2)}</td>
           <td className="acts"><button className="icon-btn" aria-label={`Edit ${t.title}`} onClick={() => setForm(t)}><Pencil size={16} /></button>

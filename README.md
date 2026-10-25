@@ -88,6 +88,9 @@ Change models, then: `flask db migrate -m "msg"` and `flask db upgrade`.
 
 Render's free tier sleeps when idle; the first request may take ~30–60 s.
 
+## Settings
+`GET/PUT /api/settings` store one **global** row (no authentication exists, so every visitor shares it). `PUT` takes a partial body plus the `version` you loaded; a stale version returns 409. `PUT /api/budgets/bulk` creates or updates several category budgets for a month atomically. Currency and date format change display only; amounts are never converted. Budget alerts are in-app only; no email or browser notifications are sent, and the monthly-summary toggle is a saved preference.
+
 ## Known limitations
 - **No user accounts.** The API is single-tenant: anyone who knows the API URL can read and write its data. Use it with demo data, or add authentication (e.g. Flask-JWT-Extended or a provider such as Auth0/Clerk) and a `user_id` on both tables before storing real finances. A secret in a Vite bundle would not protect it, so none is used.
 - Analytics aggregate in Python after date-range queries: fine for personal volumes (thousands of rows), not for millions.

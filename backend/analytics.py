@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import date, timedelta
-from models import Transaction, Budget
+from models import db, Transaction, Budget, Settings
 
 CATEGORIES = ["Food & Dining", "Groceries", "Transport", "Housing", "Utilities", "Health", "Shopping",
               "Entertainment", "Travel", "Education", "Salary", "Freelance", "Investments", "Other"]
@@ -35,7 +35,16 @@ def by_category(txs, typ="expense"):
         if t.type == typ: d[t.category] += float(t.amount)
     return {k: round(v, 2) for k, v in d.items()}
 
+def current_settings():
+    """Read-only lookup (never creates the row). Returns None if settings were never saved."""
+    return db.session.get(Settings, 1)
+
+def alert_threshold():
+    st = current_settings()
+    return st.budget_alert_threshold if st else 80
+
 def budget_status(month):
+    thr = alert_threshold()
     s, e = month_bounds(month)
     spent = by_category(tx_between(s, e))
     out = []
@@ -44,7 +53,7 @@ def budget_status(month):
         pct = round(sp / amt * 100, 1)
         out.append({"id": b.id, "category": b.category, "month": month, "amount": amt, "spent": sp,
                     "remaining": round(amt - sp, 2), "pct": pct,
-                    "status": "over" if sp > amt else "warning" if pct >= 80 else "ok"})
+                    "status": "over" if sp > amt else "warning" if pct >= thr else "ok"})
     return out
 
 def month_series(month, n=6):
@@ -64,7 +73,12 @@ def dashboard(month):
     tot = sum(cats.values())
     recent = Transaction.query.order_by(Transaction.date.desc(), Transaction.id.desc()).limit(6).all()
     def delta(a, b): return None if not b else round((a - b) / b * 100, 1)
-    return {"month": month, "balance": allt["savings"], **cur, "previous": prev,
+    st = current_settings()
+    lim = float(st.monthly_spending_limit) if st and st.monthly_spending_limit else None
+    limit = None if not lim else {"amount": lim, "spent": cur["expenses"], "remaining": round(lim - cur["expenses"], 2),
+                                  "pct": round(cur["expenses"] / lim * 100, 1),
+                                  "status": "over" if cur["expenses"] > lim else "warning" if cur["expenses"] / lim * 100 >= st.budget_alert_threshold else "ok"}
+    return {"income_target": float(st.monthly_income_target) if st and st.monthly_income_target else None, "limit": limit, "month": month, "balance": allt["savings"], **cur, "previous": prev,
             "change": {"income": delta(cur["income"], prev["income"]), "expenses": delta(cur["expenses"], prev["expenses"])},
             "savings_rate": round(cur["savings"] / cur["income"] * 100, 1) if cur["income"] else None,
             "series": month_series(month),

@@ -1,10 +1,24 @@
 const RAW = import.meta.env.VITE_API_BASE_URL
 export const API_CONFIGURED = Boolean(RAW)
 const BASE = (RAW || '').replace(/\/$/, '') + '/api'
-const CUR = import.meta.env.VITE_CURRENCY || 'INR'
-const LOC = import.meta.env.VITE_LOCALE || 'en-IN'
-export const money = (n, d = 0) => new Intl.NumberFormat(LOC, { style: 'currency', currency: CUR, maximumFractionDigits: d }).format(n ?? 0)
-export const monthLabel = (m) => new Date(m + '-01T00:00').toLocaleDateString(LOC, { month: 'short', year: 'numeric' })
+export const CURRENCIES = {
+  INR: { locale: 'en-IN', label: 'Indian rupee (INR)' }, USD: { locale: 'en-US', label: 'US dollar (USD)' },
+  EUR: { locale: 'en-IE', label: 'Euro (EUR)' }, GBP: { locale: 'en-GB', label: 'British pound (GBP)' }, AED: { locale: 'en-AE', label: 'UAE dirham (AED)' },
+}
+export const DATE_FORMATS = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD']
+// Display preferences. Defaults apply until saved settings load from the API (VITE_CURRENCY is only a fallback).
+let fmt = { currency: CURRENCIES[import.meta.env.VITE_CURRENCY] ? import.meta.env.VITE_CURRENCY : 'INR', dateFormat: 'DD/MM/YYYY' }
+export const setFormat = (p) => { fmt = { ...fmt, ...p } }
+export const getFormat = () => fmt
+const locale = () => CURRENCIES[fmt.currency].locale
+// Formatting only: stored amounts are never converted between currencies.
+export const money = (n, d = 0, currency = fmt.currency) => new Intl.NumberFormat(CURRENCIES[currency].locale, { style: 'currency', currency, maximumFractionDigits: d }).format(n ?? 0)
+export const monthLabel = (m) => new Date(m + '-01T00:00').toLocaleDateString(locale(), { month: 'short', year: 'numeric' })
+export function fmtDate(iso, f = fmt.dateFormat) {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return f === 'MM/DD/YYYY' ? `${m}/${d}/${y}` : f === 'YYYY-MM-DD' ? iso : `${d}/${m}/${y}`
+}
 
 export class ApiError extends Error { constructor(m, fields, status) { super(m); this.fields = fields || {}; this.status = status } }
 
